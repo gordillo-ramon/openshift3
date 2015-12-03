@@ -27,8 +27,8 @@ ENV REDIS_DOWNLOAD_SHA1 ad3ee178c42bfcfd310c72bbddffbbe35db9b4a6
 # for redis-sentinel see: http://redis.io/topics/sentinel
 RUN buildDeps='gcc glibc-devel make' \
 	&& set -x \
-	&& yum -y --setopt=tsflags=nodocs install gettext  \
-	&& yum -y --setopt=tsflags=nodocs install $buildDeps  \
+	&& yum install -y gettext \
+	&& yum -y --setopt=tsflags=nodocs install $buildDeps \
 	&& mkdir -p /usr/src/redis \
 	&& curl -sSL "$REDIS_DOWNLOAD_URL" -o redis.tar.gz \
 	&& echo "$REDIS_DOWNLOAD_SHA1 *redis.tar.gz" | sha1sum -c - \
