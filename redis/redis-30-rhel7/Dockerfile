@@ -49,5 +49,5 @@ COPY redis_template.conf /usr/local/etc/redis_template.conf
 
 ENTRYPOINT ["/entrypoint.sh"]
 
-CMD [ "redis-server", "/usr/local/etc/redis.conf" ]
+CMD [ "redis-server", "/tmp/redis.conf" ]
 

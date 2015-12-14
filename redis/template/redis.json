@@ -12,6 +12,12 @@
   },
   "parameters": [
     {
+      "name": "REDIS_SERVICE_NAME",
+      "description": "Redis Service Name",
+      "value": "redis",
+      "required": true
+    },
+    {
       "name": "REDIS_REQUIREPASS",
       "description": "Login Password",
       "generate": "expression",
@@ -33,9 +39,9 @@
       "kind": "Service",
       "apiVersion": "v1",
       "metadata": {
-        "name": "redis",
+        "name": "${REDIS_SERVICE_NAME}",
         "labels": {
-          "name": "redis"
+          "name":"${REDIS_SERVICE_NAME}" 
         }
       },
       "spec": {
@@ -48,7 +54,7 @@
           }
         ],
         "selector": {
-          "name": "redis"
+          "name": "${REDIS_SERVICE_NAME}"
         },
         "portalIP": "None",
         "type": "ClusterIP",
@@ -62,7 +68,7 @@
       "kind": "DeploymentConfig",
       "apiVersion": "v1",
       "metadata": {
-        "name": "redis",
+        "name": "${REDIS_SERVICE_NAME}",
         "creationTimestamp": null
       },
       "spec": {
@@ -77,13 +83,13 @@
         ],
         "replicas": 1,
         "selector": {
-          "name": "redis"
+          "name": "${REDIS_SERVICE_NAME}"
         },
         "template": {
           "metadata": {
             "creationTimestamp": null,
             "labels": {
-              "name": "redis"
+              "name": "${REDIS_SERVICE_NAME}"
             }
           },
           "spec": {
@@ -92,7 +98,8 @@
                 "name": "server",
                 "image": "openshift/redis-30-rhel7",
                 "args": [
-                  "run-mysqld-master"
+                  "redis-server",
+                  "/tmp/redis.conf"
                 ],
                 "ports": [
                   {
