@@ -32,6 +32,11 @@
       "name": "REDIS_MAXMEMORY",
       "description": "Max memory for Redis server",
       "value": "0"
+    },
+    {
+      "name": "TZ",
+      "description": "Timezone",
+      "value": "CET"
     }
   ],
   "objects": [
@@ -119,6 +124,10 @@
                   {
                     "name": "REDIS_MAXMEMORY",
                     "value": "${REDIS_MAXMEMORY}"
+                  },
+                  {
+                    "name": "TZ",
+                    "value": "${TZ}"
                   }
                 ],
                 "resources": {},

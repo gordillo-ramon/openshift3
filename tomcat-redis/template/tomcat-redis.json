@@ -1,0 +1,278 @@
+{
+  "kind": "Template",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "tomcat-redis-dev",
+    "creationTimestamp": null,
+    "annotations": {
+      "description": "Tomcat 8 with Redis 3.x",
+      "iconClass": "icon-tomcat",
+      "tags": "tomcat,tomcat8,redis"
+    }
+  },
+  "parameters": [
+        {
+            "description": "The name for the application.",
+            "name": "APPLICATION_NAME",
+            "value": "my-app",
+            "required": true
+        },
+        {
+            "description": "Artifact url (jar, zip, tar.gz)",
+            "name": "ARTIFACT_URL",
+            "value": "https://gitlab.ci.gsnet.corp/xIS11103/webpoc",
+            "required": true
+        },
+        {
+            "description": "App name to deploy in Tomcat context root",
+            "name": "ROOT_APP",
+            "value": "",
+            "required": false
+        },
+    {
+      "name": "REDIS_REQUIREPASS",
+      "description": "Login Password",
+      "generate": "expression",
+      "from": "[a-f0-9]{8}"
+    },
+    {
+      "name": "REDIS_MAXCLIENTS",
+      "description": "Max Connections",
+      "value": "10000"
+    },
+    {
+      "name": "REDIS_MAXMEMORY",
+      "description": "Max memory for Redis server",
+      "value": "0"
+    },
+    {
+      "name": "TZ",
+      "description": "Timezone",
+      "value": "CET"
+    }
+  ],
+  "objects": [
+    {
+      "kind": "Service",
+      "apiVersion": "v1",
+      "metadata": {
+        "name": "redis-${APPLICATION_NAME}",
+        "labels": {
+	  "app": "${APPLICATION_NAME}",
+          "service":"redis-${APPLICATION_NAME}" 
+        }
+      },
+      "spec": {
+        "ports": [
+          {
+            "protocol": "TCP",
+            "port": 6379,
+            "targetPort": 6379
+          }
+        ],
+        "selector": {
+          "pod": "redis-${APPLICATION_NAME}"
+        }
+      },
+      "status": {
+        "loadBalancer": {}
+      }
+    },
+    {
+      "kind": "DeploymentConfig",
+      "apiVersion": "v1",
+      "metadata": {
+        "name": "redis-${APPLICATION_NAME}",
+        "creationTimestamp": null,
+        "labels": {
+	  "app": "${APPLICATION_NAME}",
+          "deploymentConfig":"redis-${APPLICATION_NAME}" 
+        }
+      },
+      "spec": {
+        "strategy": {
+          "type": "Recreate",
+          "resources": {}
+        },
+        "triggers": [
+          {
+            "type": "ConfigChange"
+          }
+        ],
+        "replicas": 1,
+        "selector": {
+          "pod": "redis-${APPLICATION_NAME}"
+        },
+        "template": {
+          "metadata": {
+            "creationTimestamp": null,
+            "labels": {
+	      "app": "${APPLICATION_NAME}",
+              "pod": "redis-${APPLICATION_NAME}"
+            }
+          },
+          "spec": {
+            "containers": [
+              {
+                "name": "server",
+                "image": "docker.io/redis:latest",
+                "ports": [
+                  {
+                    "containerPort": 6379,
+                    "protocol": "TCP"
+                  }
+                ],
+                "env": [
+                  {
+                    "name": "REDIS_REQUIREPASS",
+                    "value": "${REDIS_REQUIREPASS}"
+                  },
+                  {
+                    "name": "REDIS_MAXCLIENTS",
+                    "value": "${REDIS_MAXCLIENTS}"
+                  },
+                  {
+                    "name": "REDIS_MAXMEMORY",
+                    "value": "${REDIS_MAXMEMORY}"
+                  },
+                  {
+                    "name": "TZ",
+                    "value": "${TZ}"
+                  }
+                ],
+                "resources": {},
+                "terminationMessagePath": "/dev/termination-log",
+                "imagePullPolicy": "IfNotPresent",
+                "securityContext": {
+                  "capabilities": {},
+                  "privileged": false
+                }
+              }
+            ],
+            "restartPolicy": "Always",
+            "dnsPolicy": "ClusterFirst"
+          }
+        }
+      },
+      "status": {}
+    },
+        {
+            "kind": "Service",
+            "apiVersion": "v1",
+            "spec": {
+                "ports": [
+                    {
+                        "port": 8080,
+                        "targetPort": 8080
+                    }
+                ],
+                "selector": {
+                    "name": "tomcat-${APPLICATION_NAME}"
+                }
+            },
+            "metadata": {
+                "name": "tomcat-${APPLICATION_NAME}",
+                "labels": {
+                    "app": "${APPLICATION_NAME}",
+                    "name": "tomcat-${APPLICATION_NAME}"
+                },
+                "annotations": {
+                    "description": "The web server's http port."
+                }
+            }
+        },
+        {
+            "kind": "Route",
+            "apiVersion": "v1",
+            "id": "tomcat-${APPLICATION_NAME}-http",
+            "metadata": {
+                "name": "tomcat-${APPLICATION_NAME}",
+                "labels": {
+                    "app": "${APPLICATION_NAME}",
+                    "name": "tomcat-${APPLICATION_NAME}"
+                },
+                "annotations": {
+                    "description": "Route for application's http service."
+                }
+            },
+            "spec": {
+                "to": {
+                    "name": "tomcat-${APPLICATION_NAME}"
+                }
+            }
+        },
+        {
+          "kind": "DeploymentConfig",
+          "apiVersion": "v1",
+          "metadata": {
+            "name": "tomcat-${APPLICATION_NAME}",
+            "creationTimestamp": null,
+                "labels": {
+            	    "name": "tomcat-${APPLICATION_NAME}",
+                    "app": "${APPLICATION_NAME}"
+                }
+           },
+          "spec": {
+            "strategy": {
+              "type": "Recreate",
+              "resources": {}
+            },
+            "triggers": [
+              {
+                "type": "ConfigChange"
+              }
+            ],
+            "replicas": 1,
+            "selector": {
+              "name": "tomcat-${APPLICATION_NAME}"
+            },
+            "template": {
+              "metadata": {
+                "creationTimestamp": null,
+                "labels": {
+                  "app": "${APPLICATION_NAME}",
+                  "name": "tomcat-${APPLICATION_NAME}"
+                }
+              },
+              "spec": {
+                "containers": [
+                  {
+                    "name": "server",
+                    "image": "registry.lvtc.gsnet.corp/produban/tomcat8:latest",
+                    "ports": [
+                      {
+                        "containerPort": 8080,
+                        "protocol": "TCP"
+                      }
+                    ],
+                    "env": [
+                      {
+                          "name": "DEBUG",
+                          "value": "true"
+                      },
+                      {
+                          "name": "ARTIFACT_URL",
+                          "value": "${ARTIFACT_URL}"
+                      },
+                      {
+                          "name": "JAVA_OPTS_EXT",
+                          "value": "-Djava.security.egd=file:/dev/./urandom -Xmx400m"
+                      }
+                    ],
+                    "resources": {},
+                    "terminationMessagePath": "/dev/termination-log",
+                    "imagePullPolicy": "IfNotPresent",
+                    "securityContext": {
+                      "capabilities": {},
+                      "privileged": false
+                    }
+                  }
+                ],
+                "restartPolicy": "Always",
+                "dnsPolicy": "ClusterFirst"
+              }
+            }
+          }
+        }  
+	]
+}

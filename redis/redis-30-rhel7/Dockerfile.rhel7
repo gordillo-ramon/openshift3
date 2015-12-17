@@ -42,9 +42,9 @@ RUN buildDeps='gcc glibc-devel make tar' \
 	&& yum clean all -y
 
 # RUN mkdir /data && chown redis:redis /data
-RUN mkdir /tmp/data 
 # VOLUME /data
-WORKDIR /tmp/data
+
+WORKDIR /tmp
 
 COPY redis-server-entrypoint.sh /entrypoint.sh
 COPY redis_template.conf /usr/local/etc/redis_template.conf
