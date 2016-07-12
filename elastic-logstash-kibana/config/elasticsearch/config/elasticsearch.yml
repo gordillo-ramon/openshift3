@@ -1,0 +1,3 @@
+bootstrap.ignore_system_bootstrap_checks: true
+network.host: 0.0.0.0
+discovery.zen.minimum_master_nodes: 1

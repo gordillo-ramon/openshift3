@@ -1,0 +1,256 @@
+---
+  kind: "Template"
+  apiVersion: "v1"
+  metadata: 
+    name: "elasticsearch-logstash-kibana"
+    creationTimestamp: null
+    annotations: 
+      description: "ELK for Development. Configuration is based on ConfigMaps, and Elastic storage is persistent. No clustering is supported."
+      iconClass: "icon-equalizer"
+      tags: ""
+  parameters: 
+    - 
+      name: "TZ"
+      description: "Timezone"
+      value: "CET"
+  objects: 
+    -
+      kind: "PersistentVolumeClaim"
+      apiVersion: "v1"
+      metadata:
+        name: "elastic-data"
+      spec:
+        accessModes:
+          - "ReadWriteOnce"
+        resources:
+          requests:
+            storage: 1G
+    - 
+      kind: "DeploymentConfig"
+      apiVersion: "v1"
+      metadata: 
+        name: "logstash"
+        labels: 
+          app: "elk"
+          deploymentConfig: "logstash"
+      spec: 
+        strategy: 
+          type: "Recreate"
+          resources: {}
+        triggers: 
+          - 
+            type: "ConfigChange"
+        replicas: 1
+        selector: 
+          pod: "logstash"
+        template: 
+          metadata: 
+            creationTimestamp: null
+            labels: 
+              app: "elk"
+              pod: "logstash"
+          spec: 
+            containers: 
+              - 
+                name: "logstash"
+                image: "logstash:5"
+                env: 
+                  - 
+                    name: "TZ"
+                    value: "${TZ}"
+                command: 
+                  - "/usr/share/logstash/bin/logstash"
+                args:
+                  - "--path.settings=/etc/logstash"
+                  - "-f"
+                  - "/etc/logstash/conf.d/logstash.conf"
+                resources: {}
+                terminationMessagePath: "/dev/termination-log"
+                volumeMounts:
+                - mountPath: /etc/logstash/conf.d
+                  name: logstash-config                
+                imagePullPolicy: "IfNotPresent"
+                securityContext: 
+                  capabilities: {}
+                  privileged: false
+            restartPolicy: "Always"
+            volumes:
+            - name: logstash-config
+              configMap:
+                name: logstash-config
+            dnsPolicy: "ClusterFirst"
+      status: {}
+    - 
+      kind: "Service"
+      apiVersion: "v1"
+      spec: 
+        ports: 
+          - 
+            name: "rest"
+            port: 9200
+            targetPort: 9200
+          - 
+            name: "java"
+            port: 9300
+            targetPort: 9300
+        selector: 
+          name: "elasticsearch"
+      metadata: 
+        name: "elasticsearch"
+        labels: 
+          app: "elk"
+          name: "elasticsearch"
+        annotations: 
+          description: "The elasticsearch ports"
+    - 
+      kind: "DeploymentConfig"
+      apiVersion: "v1"
+      metadata: 
+        name: "elasticsearch"
+        creationTimestamp: null
+        labels: 
+          name: "elasticsearch"
+          app: "elk"
+      spec: 
+        strategy: 
+          type: "Recreate"
+          resources: {}
+        triggers: 
+          - 
+            type: "ConfigChange"
+        replicas: 1
+        selector: 
+          name: "elasticsearch"
+        template: 
+          metadata: 
+            creationTimestamp: null
+            labels: 
+              app: "elk"
+              name: "elasticsearch"
+          spec: 
+            containers: 
+              - 
+                name: "elasticsearch"
+                image: "elasticsearch:5"
+                ports: 
+                  - 
+                    containerPort: 9200
+                    protocol: "TCP"
+                  - 
+                    containerPort: 9300
+                    protocol: "TCP"
+                env: 
+                  - 
+                    name: "ES_JAVA_OPTS"
+                    value: "-Xms512m -Xmx512m"
+                  - 
+                    name: "TZ"
+                    value: "${TZ}"
+                resources:
+                  limits:
+                    memory: "1G"
+                  requests:
+                    memory: "1G"
+                terminationMessagePath: "/dev/termination-log"
+                volumeMounts:
+                - mountPath: /usr/share/elasticsearch/data
+                  name: elastic-data
+                - mountPath: /usr/share/elasticsearch/config
+                  name: elastic-config
+                  readOnly: false
+                imagePullPolicy: "IfNotPresent"
+                securityContext: 
+                  capabilities: {}
+                  privileged: false
+            restartPolicy: "Always"
+            volumes:
+            - name: elastic-data
+              persistentVolumeClaim:
+                claimName: elastic-data
+            - name: elastic-config
+              configMap:
+                name: elastic-config
+            dnsPolicy: "ClusterFirst"
+    - 
+      kind: "Service"
+      apiVersion: "v1"
+      metadata: 
+        name: "kibana"
+        labels: 
+          app: "elk"
+          service: "kibana"
+      spec: 
+        ports: 
+          - 
+            protocol: "TCP"
+            port: 5601
+            targetPort: 5601
+        selector: 
+          pod: "kibana"
+      status: 
+        loadBalancer: {}
+    - 
+      kind: "Route"
+      apiVersion: "v1"
+      id: "kibana-http"
+      metadata: 
+        name: "kibana"
+        labels: 
+          app: "elk"
+          name: "kibana"
+        annotations: 
+          description: "Route for Kibana Console"
+      spec: 
+        to: 
+          name: "kibana"
+    - 
+      kind: "DeploymentConfig"
+      apiVersion: "v1"
+      metadata: 
+        name: "kibana"
+        creationTimestamp: null
+        labels: 
+          app: "elk"
+          deploymentConfig: "kibana"
+      spec: 
+        strategy: 
+          type: "Recreate"
+          resources: {}
+        triggers: 
+          - 
+            type: "ConfigChange"
+        replicas: 1
+        selector: 
+          pod: "kibana"
+        template: 
+          metadata: 
+            creationTimestamp: null
+            labels: 
+              app: "elk"
+              pod: "kibana"
+          spec: 
+            containers: 
+              - 
+                name: "kibana"
+                image: "kibana:5"
+                ports: 
+                  - 
+                    containerPort: 5601
+                    protocol: "TCP"
+                env: 
+                  - 
+                    name: "TZ"
+                    value: "${TZ}"
+                resources: {}
+                terminationMessagePath: "/dev/termination-log"
+                imagePullPolicy: "IfNotPresent"
+                securityContext: 
+                  capabilities: {}
+                  privileged: false
+            restartPolicy: "Always"
+            volumes:
+            - name: kibana-config
+              configMap:
+                name: elastic-config
+            dnsPolicy: "ClusterFirst"
+      status: {}

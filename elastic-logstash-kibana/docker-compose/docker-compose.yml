@@ -1,0 +1,30 @@
+elasticsearch:
+  image: elasticsearch:5
+  command: elasticsearch 
+  environment:
+    - ES_JAVA_OPTS=-Xms512M -Xmx512M
+  volumes:
+    - ../config/elasticsearch/config:/usr/share/elasticsearch/config
+    - /usr/share/elasticsearch/config/scripts
+  ports:
+    - "9200:9200"
+    - "9300:9300"
+logstash:
+  image: logstash:5
+  command: /usr/share/logstash/bin/logstash --path.settings=/etc/logstash -f /etc/logstash/conf.d/logstash.conf
+  volumes:
+    - ../config/logstash/conf.d:/etc/logstash/conf.d
+  ports:
+    - "8080:8080"
+  links:
+    - elasticsearch
+kibana:
+  image: kibana:5
+  volumes:
+    - ../config/kibana/config:/opt/kibana/config
+  ports:
+    - "5601:5601"
+  links:
+    - elasticsearch
+
+

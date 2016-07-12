@@ -1,23 +1,27 @@
-# Openshift v3 (3.1)
+# Openshift v3 (3.2)
 
-## Contenedores Docker
 
-Cuando tenemos Dockerfiles que parten de una distribución que no sea RHEL/CENTOS 7, se deben migrar.
-
-### Documentación previa
+## Read it first
 * [Best Practices building Docker containers]
 * [Best Practices building Docker images for Openshift]
 
-### Cambiar la distro origen.
-Debe cambiarse la distro de origen de la que parte el Dockerfile. Ejemplo:
+## Docker Containers: if you want to change your distribution base to RHEL/CentOS
 
+When we have dockerfiles that are not RHEL/CentOS based, if we want to migrate.
+
+
+### Change your base image
+
+Example
+
+substitute
 `FROM debian:wheezy`
-por 
+to 
 `FROM centos:centos7`
 
-### Gestión de Paquetes
+### Change the package manager
 
-Revisar y ver la gestión de paquetes. Cambiar de apt-get a yum, y revisar el nombre de los paquetes a instalar. Por ejemplo, si tenemos la siguiente instrucción:
+Move to "yum" if possible. If not, "rpm" should be used. If the original distribution used apt, it should be analyse the package translation:
 
 ```dockerfile
 RUN apt-get update && \
@@ -25,7 +29,7 @@ RUN apt-get update && \
 	gcc … && \
 	apt-get purge -y --auto-remove "gcc"
 ```	
-Vemos que se requiere el comando gcc para montar la imagen, y que por eso se descarga el paquete gcc con apt-get y luego se borra. El equivalente en centos, requiere conocer qué paquete trae el comando gcc. Se usa el siguiente comando:
+We find out that gcc is needed to build the image, so it is installed with apt-get and then removed. Equivalent with CentOS: first we identify which package includes gcc. We execute:
 
 ```sh
 yum whatprovides gcc
@@ -38,7 +42,7 @@ Determining fastest mirrors
 gcc-4.8.3-9.el7.x86_64 : Various compilers (C, C++, Objective-C, Java, ...)
 Repo        : base
 ```
-A partir de ahí, podemos usar el nombre largo o el abreviado (antes de la versión) siempre que no haya dos, uno de 32 (i686) y uno de 64 bits (x86_64). Al traducir, ahora sería:
+From that package, we can use short-name (without version), if there is no both 32 (i686) and 64 bits (x86_64). The above command in CentOS will be:
 
 ```dockerfile
 RUN yum -y --setopt=tsflags=nodocs install gcc && \
@@ -49,7 +53,7 @@ RUN yum -y --setopt=tsflags=nodocs install gcc && \
 
 #### RHEL 7
 
-Si vamos a usar rhel en lugar de centos, es necesario saber cual es el repositorio necesario para habilitar antes de usar el yum para instalar el paquete. Por ejemplo:
+If we want to use RHEL instead, we need to know which repository should be enabled before running "yum":
 
 ```sh
 yum whatprovides gcc
@@ -58,37 +62,47 @@ Loaded plugins: langpacks, product-id, search-disabled-repos, subscription-manag
 gcc-4.8.2-16.el7.x86_64 : Various compilers (C, C++, Objective-C, Java, ...)
 Repo        : rhel-7-server-rpms
 ```
-Habría que hacer entonces antes:
+Then, the dockerfile should include previously:
 
 ```dockerfile
 RUN yum install -y yum-utils gettext hostname && \
         yum-config-manager --enable rhel-7-server-rpms && \
         yum -y --setopt=tsflags=nodocs install gcc…
 ```
-Y debe ser ejecutado desde una rhel7 con docker, si no falla la autorización de paquetes!
+Which has to be executed from RHEL with docker, otherwise you will not have authorization to enable those repos in the build!
 
-### Programas que se ejecutan con usuario root
+### Applications executed with root or with a named-user
 
-[TO DO]
+If those applications has some priviledges requirements on some fields/ports, some further changes should be implemented. Those changes will include:
+- Grants to files/folders
+- Port changes from protected (=<1024) to non-protected (>1024)
 
+## Openshift Templates
 
-## Templates de Plantillas
+### First steps
 
-### Documentación previa
+First, [Openshift Templates] should be read
 
-Primero, leer [Openshift Templates]
+### Tips & Tricks
 
-### Trucos
+* For rapid prototyping, try to use docker hub "official" images if possible.
+* Some development templates needs persistent volumes. First, start with ephemeral ones, then add the volumes at a later stage.
+* If you need to change the configuration, there are different alternatives.
+	* Kubernetes ConfigMaps if you need some config files in a single folder
+	* Github volume mount for a whole set of files in a definite structure (for example, plugin jars)
+	* Persistent volumes for dev iteration
 
-3.1 sólo permite meter parámetros de tipo string. Los parámetros de templates que sean enteros (como los port de los services) a día de hoy tienen que ir a fuego 
+### Testing
 
-### Pruebas
-
-Para probar el template, usar el comando 
+A first test (grammar) can be done with "oc" client. 
 
 ```sh
 $ oc process -o describe -f template.json 
 ```
+
+A next test should be instantiating our template, checking that every object is created. Additionally, we need to check:
+- Volume mounts are ok
+- Pods are starting and running correctly
 
 [Openshift Templates]:https://docs.openshift.com/enterprise/latest/architecture/core_concepts/templates.html
 [Best Practices building Docker containers]:https://docs.docker.com/engine/articles/dockerfile_best-practices/
