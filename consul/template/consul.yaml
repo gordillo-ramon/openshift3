@@ -95,7 +95,8 @@
                   - "--data-dir=/consul/data"
                   - "-config-dir=/consul/config"
                   - "-ui"
-                  - "-dev"
+                  - "-server"
+                  - "-bootstrap"
                   - "-client"
                   - "0.0.0.0"
                 ports: 
